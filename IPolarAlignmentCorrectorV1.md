@@ -26,13 +26,18 @@ Telescope driver. Every client has to learn every device.
 The existing interfaces do not fit:
 
 - **Switch** can carry two writable values, and that is what we use today as a
-  stopgap. But clients cannot tell a corrector from any other switch, the
-  direction and units are a naming convention rather than a contract, and a
-  move is a state to set rather than an operation to start and wait for.
-- **Focuser** has a limited range, but it counts steps rather than angles, and
-  clients offer it for autofocus.
-- **Rotator** uses degrees, but assumes a full 360° ring. A corrector with a few
-  degrees of travel cannot pass the Rotator conformance tests, and clients
+  stopgap. Switch V3 can even set a value asynchronously. But a client cannot
+  tell a corrector from any other switch; direction and units are a naming
+  convention rather than a contract; a switch value is an absolute state, so a
+  relative move has to be faked by writing a delta and resetting it to zero;
+  there is no per-call move limit; and a failed move has no way to say why. In
+  practice clients also treat switches as synchronous.
+- **Focuser** has a limited range, but it counts steps rather than angles, its
+  conformance tests drive the full travel from 0 to `MaxStep`, and clients
+  offer it for autofocus.
+- **Rotator** uses degrees, but assumes a full 360° ring. Its conformance tests
+  move to 45°, 135°, 225° and 315° and by up to ±375°, several revolutions in
+  all, so a corrector with a few degrees of travel cannot pass. Clients also
   offer it for camera framing.
 
 This is the same situation that led to CoverCalibrator in Platform 6.5: Switch
@@ -75,6 +80,10 @@ In addition to the common members of every Platform 7 device (`Action`,
 `DeviceState`, `Description`, `DriverInfo`, `DriverVersion`,
 `InterfaceVersion` = 1, `Name`).
 
+`Connect` opens the link and reads the device's state. It does not home or
+calibrate; clients give up on a device that stays `Connecting` for more than a
+few seconds. `Disconnect` while a move is in progress halts the move first.
+
 ### Methods
 
 | Member | Kind | Summary |
@@ -82,7 +91,7 @@ In addition to the common members of every Platform 7 device (`Action`,
 | `MoveAzimuth(Degrees)` | async initiator | Starts a relative azimuth move of the polar axis. Completion: `IsMoving` becomes false. |
 | `MoveAltitude(Degrees)` | async initiator | Starts a relative altitude move of the polar axis. Completion: `IsMoving` becomes false. |
 | `Move(AzimuthDegrees, AltitudeDegrees)` | async initiator, optional | Starts both moves as one operation. Throws `MethodNotImplementedException` when `CanMoveBoth` is false. |
-| `Halt()` | synchronous | Stops all motion immediately. On return `IsMoving` is false. |
+| `Halt()` | synchronous | Stops motion on both axes. Returns when motion has stopped; on return `IsMoving` is false. Calling it while idle does nothing and does not throw. |
 
 ### Properties
 
@@ -90,36 +99,59 @@ In addition to the common members of every Platform 7 device (`Action`,
 |---|---|---|
 | `IsMoving` | boolean | True while any move is in progress. The completion property for all three move methods. |
 | `CanMoveBoth` | boolean | True if `Move` is implemented. |
-| `AzimuthMaxMove` | double | Largest azimuth move, in degrees (absolute value), that a single call accepts. |
-| `AltitudeMaxMove` | double | Largest altitude move, in degrees (absolute value), that a single call accepts. |
+| `AzimuthMaxMove` | double | Largest azimuth move, in degrees (absolute value), that a single call accepts. A limit per call, not the travel left. |
+| `AltitudeMaxMove` | double | Largest altitude move, in degrees (absolute value), that a single call accepts. A limit per call, not the travel left. |
 | `CanReportPosition` | boolean | True if the device tracks its own position. |
 | `AzimuthPosition` | double | Azimuth offset of the polar axis from the driver's zero, in degrees. `PropertyNotImplementedException` when `CanReportPosition` is false. |
 | `AltitudePosition` | double | Altitude offset of the polar axis from the driver's zero, in degrees. `PropertyNotImplementedException` when `CanReportPosition` is false. |
 
-The driver chooses where zero is (power-on, a home switch, a user reset) and
-documents it. Positions use the same signs as moves.
+The driver chooses where zero is (power-on, a home switch, a user reset),
+documents it, and says whether it survives a disconnect or power cycle.
+Positions may be counted from commanded steps rather than measured; the
+interface does not promise a measurement. During a move they return the latest
+value the driver has. Positions use the same signs as moves.
+
+`CanMoveBoth` and `CanReportPosition` answer while disconnected. Every other
+member in this section throws `NotConnectedException` while disconnected,
+including the `MaxMove` properties, which may come from the device.
 
 ### DeviceState
 
 `IsMoving`, `TimeStamp`, and, when `CanReportPosition` is true,
 `AzimuthPosition` and `AltitudePosition`.
 
+The usual rules apply: the list is empty while disconnected, and a member whose
+getter would throw is left out. So after a failed move `IsMoving` is absent
+from `DeviceState`; a client that does not find it there reads the `IsMoving`
+property, which reports the failure.
+
 ## Behaviour of the async operations
 
 These follow the existing Platform 7 rules for asynchronous operations.
 
-- An initiator validates everything it can before returning. It throws
-  instead of returning when it already knows the move cannot complete:
+- An initiator validates everything it can before returning, in this order.
+  It throws instead of returning when it already knows the move cannot
+  complete:
   - `InvalidValueException` if the amount is outside
-    ±`AzimuthMaxMove` / ±`AltitudeMaxMove`, or not a finite number;
+    ±`AzimuthMaxMove` / ±`AltitudeMaxMove`, or not a finite number (checked
+    even while disconnected);
+  - `NotConnectedException` if not connected;
   - `InvalidOperationException` if a move is already in progress (the client
     calls `Halt` first), or if the device is not ready to move, for example
-    because it has not been calibrated; the message says which;
-  - `NotConnectedException` if not connected.
+    because it has not been calibrated; the message says which. A refused
+    call leaves the running move untouched.
+- An initiator returns as soon as the move has started, never after it has
+  finished. `IsMoving` is already true when the initiator returns, so a client
+  that polls at once never sees false before the move has begun. The driver
+  absorbs any motor start-up delay.
 - A zero amount is valid and completes immediately.
 - A failure discovered during the move (stall, lost link, end of travel) is
-  reported by `IsMoving` throwing `DriverException`, and it keeps throwing
-  until the next move starts.
+  reported by `IsMoving` throwing `DriverException` on every read until the
+  next initiator call (a zero move will do), `Halt`, `Connect` or
+  `Disconnect`. The message names the axis. The position properties do not
+  throw for this; they throw only when the device itself can no longer answer.
+- A driver that waits for the device to confirm a move treats no confirmation
+  within its own timeout as a failure, not as arrival.
 - After `Halt`, `IsMoving` returns false without an exception. The move is
   cancelled, not failed.
 
@@ -140,6 +172,17 @@ Device type in the URL: `polaralignmentcorrector`.
 | GET | `/api/v1/polaralignmentcorrector/{device_number}/canreportposition` | |
 | GET | `/api/v1/polaralignmentcorrector/{device_number}/azimuthposition` | |
 | GET | `/api/v1/polaralignmentcorrector/{device_number}/altitudeposition` | |
+
+Error numbers, all returned with HTTP 200 and the number in `ErrorNumber`, as
+for every Alpaca device:
+
+| Number | Error | Used for |
+|---|---|---|
+| 0x400 | NotImplemented | `move` when `CanMoveBoth` is false; positions when `CanReportPosition` is false |
+| 0x401 | InvalidValue | amount out of range or not finite |
+| 0x407 | NotConnected | any member other than `canmoveboth` and `canreportposition` while disconnected |
+| 0x40B | InvalidOperation | move in progress, or device not ready; never NotImplemented for this |
+| 0x500-0xFFF | driver-specific | failure during a move, read from `ismoving` |
 
 ## Mapping to INDI PACInterface
 
@@ -165,17 +208,28 @@ northern hemisphere and removes the ambiguity in the southern one.
    the routine. Other suggestions welcome.
 2. **Should `Move` be mandatory?** A driver without simultaneous motion could
    run azimuth then altitude inside one operation, which is INDI's default.
-   That would remove `CanMoveBoth` and make clients simpler.
+   That would remove `CanMoveBoth` and make clients simpler. My lean is yes.
+   INDI's `MoveBoth` default already runs azimuth then altitude in the base
+   class, and every optional member costs a `Can*` flag, a conformance case
+   and a client branch. (INDI has no `MaxMove`; its manual step is ±10°, so a
+   bridge to an INDI device would default `MaxMove` to 10.)
 3. **Home and sync.** Left out of V1 because a polar alignment client does not
-   need them. Worth adding now, or later as V2?
+   need them. Worth adding now, or later as V2? Whatever the answer, homing
+   does not belong in `Connect` (see Members). A `Sync` would be a driver-side
+   offset, like Rotator `Position` against `MechanicalPosition`, and fits V2.
 4. **Conformance.** ConformU would need a small travel budget per test so it
-   does not run a corrector to the end of its travel. The `MaxMove`
-   properties give it the bound.
+   does not run a corrector to the end of its travel, unlike the Rotator and
+   Focuser suites above. A shape that works: each move uses a small fraction
+   of `MaxMove`, moves are paired +x then −x so net travel is zero, no test
+   exceeds `MaxMove`, and `Halt` is tested on a move of that size.
 
 ## A working reference
 
 I am building an Alpaca driver for OAPA (open hardware and firmware), aimed
-at OpenAstro AlpacaBridge. Until an interface exists it exposes this behaviour
-through a Switch device plus custom `Action`s whose names match the members
-above. It can serve as a test device while the interface is discussed, and
-can move to the real interface with no change in behaviour.
+at OpenAstro AlpacaBridge, which ships only the standard device types. Until
+an interface exists it exposes this behaviour through a Switch device plus
+custom `Action`s whose names match the members above and are listed in
+`SupportedActions`, so a client can recognise a corrector; any other name
+throws `ActionNotImplementedException`. It can serve as a test device while
+the interface is discussed, and can move to the real interface with no change
+in behaviour.
