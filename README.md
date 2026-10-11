@@ -8,6 +8,11 @@ similar), covered by a polar alignment profile.
 
 The draft is here: [IAxisAlignerV1.md](IAxisAlignerV1.md)
 
+A companion draft proposes a common serial protocol for these devices, so
+that one driver can talk to any of them:
+[AxisAlignerProtocol.md](AxisAlignerProtocol.md). It is not part of the ASCOM
+interface.
+
 ## Status
 
 Draft 3, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
