@@ -10,7 +10,7 @@ The draft is here: [IAxisAlignerV1.md](IAxisAlignerV1.md)
 
 ## Status
 
-Draft 2, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
+Draft 3, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
 names, members and semantics are open to change. It is not an ASCOM
 Initiative document and has not been endorsed by the Initiative.
 

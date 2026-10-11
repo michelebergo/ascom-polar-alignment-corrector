@@ -1,10 +1,10 @@
 # IAxisAlignerV1 — draft proposal
 
-Status: draft 2, for discussion on ASCOM-Talk Developer (thread #9611, "I need
+Status: draft 3, for discussion on ASCOM-Talk Developer (thread #9611, "I need
 ASCOM standard for Automatic Polar Alignment"). Author: Michele Bergo (OAPA).
 Contributions: Joey Troy (OpenAstro), from AlpacaBridge driver and ConformU
-experience. Nothing here is final; names, members and semantics are open to
-change.
+experience; Peter Simpson (ASCOM Initiative); Lutz (OpenAstroTech). Nothing here
+is final; names, members and semantics are open to change.
 
 ## What the device is
 
@@ -66,7 +66,11 @@ same thing under both frameworks.
   device has is reported by `CanMoveX`, `CanMoveY` and `CanMoveZ`. What each
   axis means is fixed by a profile (below) or, outside a profile, documented by
   the driver.
-- **Units.** All angles are in degrees, as elsewhere in ASCOM.
+- **Units.** All angles are in degrees, as elsewhere in ASCOM: moves, positions
+  and travel range alike. A client takes the error it measured and sends it as
+  it is, to any aligner, without knowing the device's scale; the driver
+  converts to its own steps. A double in degrees resolves far finer than any of
+  these mechanisms.
 - **Relative moves are the common capability.** Most aligners have no absolute
   encoder, so every device implements relative moves. Devices that know their
   position can also implement absolute moves.
@@ -82,7 +86,7 @@ same thing under both frameworks.
 
 ### Polar alignment profile
 
-A device used to correct polar alignment follows this profile, so that any
+A device whose `Application` is `PolarAxis` follows this profile, so that any
 polar alignment client can drive any such device. Directions are defined on
 the polar axis, so they read the same in both hemispheres:
 
@@ -133,9 +137,13 @@ For an axis whose `CanMove` property is false, the amount passed to `Move`,
 | `CanSync` | boolean | True if `Sync` is implemented. |
 | `XMaxMove`, `YMaxMove`, `ZMaxMove` | double | Largest relative move of that axis, in degrees (absolute value), that a single `Move` accepts. A limit per call, not the travel left. 0 for an axis the device does not have. |
 | `XPosition`, `YPosition`, `ZPosition` | double | Position of that axis from the driver's zero, in degrees. `PropertyNotImplementedException` when the device does not track its position, or does not have that axis. |
+| `XMinPosition`, `XMaxPosition`, `YMinPosition`, `YMaxPosition`, `ZMinPosition`, `ZMaxPosition` | double | Travel of that axis: the lowest and highest position it can reach, in degrees, on the same scale as the position properties. `PropertyNotImplementedException` when the driver does not know the travel, or the device does not have that axis. |
+| `Application` | `AlignerApplication` | What the device aligns: `Other` (0), `PolarAxis` (1), `OpticalAxis` (2). A client looking for a polar aligner picks a device whose value is `PolarAxis`, and can then rely on the polar alignment profile. Fixed for a given device and configuration. |
 
 A device that implements `MoveAbsolute` or `Sync` must also implement the
-position properties of the axes it has.
+position properties of the axes it has. A device that implements the travel
+properties of an axis must also implement its position property, so a client
+can tell how far it is from either end.
 
 The driver chooses where zero is (power-on, a home switch, a user reset),
 documents it, and says whether it survives a disconnect or power cycle. After
@@ -144,7 +152,7 @@ may be counted from commanded steps rather than measured; the interface does
 not promise a measurement. During a move they return the latest value the
 driver has. Positions use the same signs as moves.
 
-The `Can*` properties answer while disconnected. Every other member in this
+The `Can*` properties and `Application` answer while disconnected. Every other member in this
 section throws `NotConnectedException` while disconnected, including the
 `MaxMove` properties, which may come from the device.
 
@@ -167,8 +175,8 @@ These follow the existing Platform 7 rules for asynchronous operations.
   - `InvalidValueException` if an amount is not a finite number, is outside
     ±`MaxMove` for its axis (`Move`), is not 0 for an axis the device does not
     have, or would take an axis past the end of its travel when the driver
-    knows the travel (checked even while disconnected, except the travel
-    check);
+    knows the travel, that is outside the range given by the travel properties
+    (checked even while disconnected, except the travel check);
   - `NotConnectedException` if not connected;
   - `InvalidOperationException` if a move is already in progress (the client
     calls `Halt` first), or if the device is not ready to move, for example
@@ -208,15 +216,17 @@ Device type in the URL: `axisaligner`.
 | GET | `/api/v1/axisaligner/{device_number}/cansync` | |
 | GET | `/api/v1/axisaligner/{device_number}/xmaxmove`, `ymaxmove`, `zmaxmove` | |
 | GET | `/api/v1/axisaligner/{device_number}/xposition`, `yposition`, `zposition` | |
+| GET | `/api/v1/axisaligner/{device_number}/xminposition`, `xmaxposition`, `yminposition`, `ymaxposition`, `zminposition`, `zmaxposition` | |
+| GET | `/api/v1/axisaligner/{device_number}/application` | |
 
 Error numbers, all returned with HTTP 200 and the number in `ErrorNumber`, as
 for every Alpaca device:
 
 | Number | Error | Used for |
 |---|---|---|
-| 0x400 | NotImplemented | `moveabsolute`, `findhome`, `sync` when their `Can*` is false; positions the device does not track |
+| 0x400 | NotImplemented | `moveabsolute`, `findhome`, `sync` when their `Can*` is false; positions the device does not track; travel the driver does not know |
 | 0x401 | InvalidValue | amount out of range, not finite, non-zero on a missing axis, or past the known travel |
-| 0x407 | NotConnected | any member other than the `can*` properties while disconnected |
+| 0x407 | NotConnected | any member other than the `can*` properties and `application` while disconnected |
 | 0x40B | InvalidOperation | move in progress, or device not ready; never NotImplemented for this |
 | 0x500-0xFFF | driver-specific | failure during a move, read from `ismoving` |
 
@@ -237,28 +247,31 @@ For a device following the polar alignment profile:
 | `PAC_HAS_SPEED`, `PAC_CAN_REVERSE`, `PAC_HAS_BACKLASH` | driver setup, not in the interface |
 
 INDI has no `MaxMove`; its manual step is ±10°, so a bridge to an INDI device
-would report 10.
+would report 10. INDI has no travel range and no application property; a bridge
+reports the travel as not implemented and `Application` as `PolarAxis`.
+
+## Conformance
+
+ConformU needs a small travel budget per test, so that it does not run an
+aligner to the end of its travel, unlike the Rotator and Focuser suites above:
+
+- each relative move uses a small fraction of `MaxMove`, and moves are paired
+  +x then −x so net travel is zero; no test exceeds `MaxMove`;
+- `Halt` is tested on a move of that size;
+- for a device that reports its travel, absolute moves stay within the reported
+  minimum and maximum, and a target just outside them must throw
+  `InvalidValueException` without moving;
+- `FindHome` is tested only when the device documents that homing is safe to
+  run unattended.
 
 ## Open questions
 
 1. **Name.** `AxisAligner` fits the generic interface. `PolarAligner` names the
    main use case and is easier to find, but reads like a software routine and
    undersells the other uses. Other suggestions welcome.
-2. **Should a device say what it aligns?** With generic axes, a polar
-   alignment client cannot tell a polar aligner from, say, a device that
-   aligns a second telescope. A small read-only property such as
-   `Application` (polar axis / optical axis / other) would let it pick the
-   right device and trust the profile.
-3. **Travel range.** Should devices that know their travel expose it per axis
-   (minimum and maximum position), so a client can plan absolute moves instead
-   of discovering the limit from an `InvalidValueException`?
-4. **Conformance.** ConformU would need a small travel budget per test so it
-   does not run an aligner to the end of its travel, unlike the Rotator and
-   Focuser suites above. A shape that works: each move uses a small fraction
-   of `MaxMove`, moves are paired +x then −x so net travel is zero, no test
-   exceeds `MaxMove`, and `Halt` is tested on a move of that size. `FindHome`
-   is tested only when the device documents that homing is safe to run
-   unattended.
+2. **Units of position and travel.** Device units (for example motor steps,
+   as a 64-bit integer) were suggested for the range. This draft keeps degrees
+   everywhere so that a client never needs a device's scale; comments welcome.
 
 ## A working reference
 
@@ -273,6 +286,12 @@ as a test device while the interface is discussed.
 
 ## Revision history
 
+- **Draft 3.** `Application` property (`Other`, `PolarAxis`, `OpticalAxis`);
+  the polar alignment profile applies to `PolarAxis` devices. Optional travel
+  range per axis (`XMinPosition` ... `ZMaxPosition`), in degrees, used for the
+  end-of-travel check. Conformance moved out of the open questions, with
+  absolute moves kept inside the reported travel. Units stated for positions and
+  range. (Feedback from Lutz, OpenAstroTech, in thread #9611.)
 - **Draft 2.** Generic axes `X`, `Y`, optional `Z`, with a polar alignment
   profile; renamed from `IPolarAlignmentCorrectorV1`. One relative `Move` for
   all axes, mandatory. Per-axis `CanMoveX/Y/Z` replace `CanMoveBoth`. Position
