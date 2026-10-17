@@ -13,6 +13,11 @@ that one driver can talk to any of them:
 [AxisAlignerProtocol.md](AxisAlignerProtocol.md). It is not part of the ASCOM
 interface.
 
+OpenAstroTech has drafted PolarAlign Actions, the same contract carried over
+ASCOM `Action()` so it works on existing device types today. A field-by-field
+comparison with this draft, and the points to settle for one standard:
+[PolarAlignActionsComparison.md](PolarAlignActionsComparison.md).
+
 ## Status
 
 Draft 3, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
