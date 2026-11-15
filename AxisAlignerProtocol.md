@@ -98,8 +98,8 @@ The rules are the interface's async rules, carried onto the wire:
 - `:AXQ#` replies `OK#` once motion has stopped. After it, `:AXS#` replies
   `0#`. Halting while idle is not an error.
 - Signs and axis meanings follow the interface: for a device whose application
-  is `PolarAxis` (1), positive `X` moves the polar axis east and positive `Y`
-  raises it.
+  is `PolarAxis` (1), positive `X` increases the azimuth of the polar axis
+  (clockwise seen from above) and positive `Y` raises it.
 
 ## What stays outside
 

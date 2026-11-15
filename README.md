@@ -20,7 +20,7 @@ comparison with this draft, and the points to settle for one standard:
 
 ## Status
 
-Draft 3, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
+Draft 4, for discussion on the ASCOM-Talk Developer forum. Nothing is final:
 names, members and semantics are open to change. It is not an ASCOM
 Initiative document and has not been endorsed by the Initiative.
 

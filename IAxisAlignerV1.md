@@ -1,6 +1,6 @@
 # IAxisAlignerV1 — draft proposal
 
-Status: draft 3, for discussion on ASCOM-Talk Developer (thread #9611, "I need
+Status: draft 4, for discussion on ASCOM-Talk Developer (thread #9611, "I need
 ASCOM standard for Automatic Polar Alignment"). Author: Michele Bergo (OAPA).
 Contributions: Joey Troy (OpenAstro), from AlpacaBridge driver and ConformU
 experience; Peter Simpson (ASCOM Initiative); Lutz (OpenAstroTech). Nothing here
@@ -87,10 +87,14 @@ same thing under both frameworks.
 ### Polar alignment profile
 
 A device whose `Application` is `PolarAxis` follows this profile, so that any
-polar alignment client can drive any such device. Directions are defined on
-the polar axis, so they read the same in both hemispheres:
+polar alignment client can drive any such device. Directions are mechanical,
+so that a device can execute them without knowing where on Earth it is:
 
-- `X` is azimuth: positive `X` moves the polar axis towards **east**;
+- `X` is azimuth: positive `X` **increases the azimuth** of the polar axis,
+  that is, turns it clockwise seen from above. This is the sense of
+  `Telescope.Azimuth` in ASCOM and of the azimuth error reported by the polar
+  alignment routines in N.I.N.A. and KStars. It is towards east in the
+  northern hemisphere and towards west in the southern one;
 - `Y` is altitude: positive `Y` **raises** the polar axis (increases its
   elevation above the horizon);
 - `Z` is not used: `CanMoveZ` is false.
@@ -98,9 +102,14 @@ the polar axis, so they read the same in both hemispheres:
 Example: the client measures the polar axis 5′ too low. It calls
 `Move(0, +0.0833, 0)`.
 
-INDI defines "ALT + = North". This profile defines positive altitude as
-raising the polar axis, which is the same thing in the northern hemisphere and
-removes the ambiguity in the southern one.
+The client knows the site latitude and converts its own error into these
+directions; the device never needs a hemisphere setting. Drafts 1 to 3 defined
+positive azimuth as "towards east in both hemispheres", which would have
+required one.
+
+INDI's `PACInterface` documents "AZ + = East, ALT + = North"; its drivers pass
+the azimuth error through to the motors unchanged, so in practice they follow
+the azimuth coordinate as this profile does.
 
 ## Members
 
@@ -286,6 +295,13 @@ as a test device while the interface is discussed.
 
 ## Revision history
 
+- **Draft 4.** Azimuth sign of the polar alignment profile changed to the
+  azimuth coordinate (positive turns the polar axis clockwise seen from above),
+  the convention of OpenAstroTech's PolarAlign Actions, ASCOM's
+  `Telescope.Azimuth` and the existing polar alignment clients. A device can
+  execute it without a hemisphere setting; the client, which knows the site,
+  converts. Settles point D1 of `PolarAlignActionsComparison.md`. (Diego
+  Nascimento, OpenAstro; Lutz, OpenAstroTech.)
 - **Draft 3.** `Application` property (`Other`, `PolarAxis`, `OpticalAxis`);
   the polar alignment profile applies to `PolarAxis` devices. Optional travel
   range per axis (`XMinPosition` ... `ZMaxPosition`), in degrees, used for the

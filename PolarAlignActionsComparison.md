@@ -26,13 +26,18 @@ The drafts mostly sit at different layers. They collide only in the middle one.
 
 ## Points to settle
 
-**D1. Sign of azimuth in the southern hemisphere — conflict.**
+**D1. Sign of azimuth in the southern hemisphere — settled (2026-11-15).**
 PolarAlign: positive `az` increases the polar axis azimuth (clockwise seen from
 above), so east in the north and **west in the south**, chosen to match TPPA's
-azimuth error. IAxisAligner: positive `X` moves the polar axis **east in both
-hemispheres**. The two agree in the north and are opposite in the south, so a
-device built to one draft turns the wrong way under a host built to the other.
-Altitude agrees: positive raises the polar axis in both drafts.
+azimuth error. IAxisAligner drafts 1 to 3: positive `X` moves the polar axis
+**east in both hemispheres**. The two agreed in the north and were opposite in
+the south, so a device built to one draft would turn the wrong way under a host
+built to the other. **Resolved in PolarAlign's favour, in IAxisAligner draft 4**:
+the azimuth coordinate is what a device can execute without knowing its
+hemisphere (the client, which knows the site latitude, converts), it is the
+sense of ASCOM's `Telescope.Azimuth`, and it is what TPPA, Ekos and the existing
+device drivers already do. Altitude agrees: positive raises the polar axis in
+both drafts.
 
 **D2. Units — differs.**
 PolarAlign uses arcminutes everywhere (moves, positions, range, `maxMove`,
@@ -66,7 +71,10 @@ PolarAlign Tier 1 has no failure channel: `Status` only says moving or not
 end of travel stops the axis, and `IsMoving` throws `DriverException` naming the
 axis until the next command, while positions still report where the axis
 stopped. Without a failure signal a host cannot tell a stalled move from a
-finished one.
+finished one. Proposed for PolarAlign v0.2: an optional `fault` string on the
+axis object in `Status`, present after a move that failed (stall, end of
+travel, timeout) with the device's reason, cleared by the next `Move`, `Stop`
+or `Home` on that axis; a host that does not know the field ignores it.
 
 **D7. Device-driven alignment (Tier 2) — one draft only.**
 PolarAlign has an optional Tier 2: `Begin` (tolerance, maxMove), `Error` (az,
@@ -113,7 +121,7 @@ Status: **conflict** · **differs** · **one only** (one draft only) · **same**
 | Axes | `az`, `alt`; `axes` lists only those present. | `X`, `Y`, `Z`; `CanMoveX/Y/Z`. | differs |
 | Units | Arcminutes. | Degrees. | differs |
 | Positive altitude | Raises the polar axis, both hemispheres. | Raises the polar axis, both hemispheres. | same |
-| Positive azimuth | Azimuth coordinate increases: east in the north, west in the south. | Towards east in both hemispheres. | **conflict** |
+| Positive azimuth | Azimuth coordinate increases: east in the north, west in the south. | Same since draft 4 (drafts 1–3: towards east in both hemispheres). | same |
 | Reversal, gearing | Handled by the device. | Handled by the device (driver setup). | same |
 
 ### Moving
@@ -161,7 +169,7 @@ Status: **conflict** · **differs** · **one only** (one draft only) · **same**
 
 If `PolarAlign:*` becomes the interim layer and the ASCOM type comes later, a
 driver can expose both from the same code. Amounts convert by 60 (arcminutes to
-degrees), and azimuth needs the sign of D1 agreed first.
+degrees); the azimuth sign is the same in both since draft 4 (D1).
 
 | PolarAlign action | IAxisAligner member | Note |
 |---|---|---|
@@ -176,8 +184,8 @@ degrees), and azimuth needs the sign of D1 agreed first.
 
 ## A possible path to one standard
 
-1. Agree the azimuth sign in the southern hemisphere (D1) in both documents
-   before anything ships.
+1. ~~Agree the azimuth sign in the southern hemisphere (D1) in both documents
+   before anything ships.~~ Done: both follow the azimuth coordinate.
 2. Use one set of interim names, `PolarAlign:*`, and drop the member-named
    actions from the IAxisAligner draft (D8).
 3. Fix units and axis names once, and state the conversion in both documents
