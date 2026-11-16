@@ -6,7 +6,11 @@ two drafts. Compares:
 - **PolarAlign Actions**, draft v0.1 (2026-10-14), OpenAstroTech:
   <https://wiki.openastrotech.com/en/Development/pa-actions>
 - **IAxisAlignerV1**, draft 3, and the **Axis Aligner serial protocol**, draft 1,
-  in this repository: [IAxisAlignerV1.md](IAxisAlignerV1.md),
+  in this repository: [IAlignerV1.md](IAlignerV1.md) (renamed `IAligner` in draft 5,
+  which follows the ASCOM Initiative's draft 1; the member names below are those of
+  draft 3: `Application` is now `AlignerPurpose`, the `Can*`, `MaxMove` and travel
+  properties now sit in one `Configuration` object, and the Alpaca device type is
+  `aligner`),
   [AxisAlignerProtocol.md](AxisAlignerProtocol.md)
 
 Both drafts describe how a host such as N.I.N.A.'s Three Point Polar Alignment
