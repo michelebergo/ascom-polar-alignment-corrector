@@ -5,13 +5,21 @@ two drafts. Compares:
 
 - **PolarAlign Actions**, draft v0.1 (2026-10-14), OpenAstroTech:
   <https://wiki.openastrotech.com/en/Development/pa-actions>
-- **IAxisAlignerV1**, draft 3, and the **Axis Aligner serial protocol**, draft 1,
-  in this repository: [IAlignerV1.md](IAlignerV1.md) (renamed `IAligner` in draft 5,
-  which follows the ASCOM Initiative's draft 1; the member names below are those of
-  draft 3: `Application` is now `AlignerPurpose`, the `Can*`, `MaxMove` and travel
-  properties now sit in one `Configuration` object, and the Alpaca device type is
-  `aligner`),
-  [AxisAlignerProtocol.md](AxisAlignerProtocol.md)
+- **IAxisAlignerV1**, draft 3, and the **Axis Aligner serial protocol**, draft 1.
+  The interface has since been taken up by the ASCOM Initiative as `IAlignerV1`
+  (API definition <https://ascom-standards.org/ialigner>, Alpaca endpoints
+  <https://ascom-standards.org/apialigner>), which is now the text to read; the
+  draft-3 member names below map onto it as follows: `Application` is
+  `AlignerPurpose`, the `Can*`, `MaxMove` and travel properties sit in one
+  `Configuration` object, the unit is stated by the device in `Units` (degrees for
+  a polar aligner), and the Alpaca device type is `aligner`. The serial protocol is
+  still here: [AxisAlignerProtocol.md](AxisAlignerProtocol.md).
+
+Since these notes were written, the discussion with the ASCOM Initiative (November
+2026) has settled, for the interface: the azimuth sign (D1), `Halt` mandatory (D5),
+a failed move reported by `IsMoving` throwing (D6), and per-axis resolution and a
+backlash-compensation flag in `Configuration` (part of D9). The PolarAlign side of
+each point is unchanged until a v0.2 of the actions.
 
 Both drafts describe how a host such as N.I.N.A.'s Three Point Polar Alignment
 drives a motorised polar axis, and they overlap almost entirely. This page lines
@@ -198,8 +206,9 @@ degrees); the azimuth sign is the same in both since draft 4 (D1).
    finished (D6).
 5. Exchange the useful one-sided fields: `settleSeconds` and `backlashHandled`
    into the interface, `Application` into `Info` (D9).
-6. Keep IAxisAligner as the dedicated type to propose to the ASCOM Initiative,
-   built so that the actions map onto it one to one.
+6. ~~Keep IAxisAligner as the dedicated type to propose to the ASCOM Initiative,
+   built so that the actions map onto it one to one.~~ Done: the Initiative's
+   `IAlignerV1` is that type; the actions map onto it one to one.
 
 Comments and corrections are welcome as issues or pull requests here, or on the
 OpenAstroTech Discord.

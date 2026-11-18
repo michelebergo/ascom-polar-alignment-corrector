@@ -1,37 +1,43 @@
-# ASCOM Axis Aligner — interface proposal
+# ASCOM Aligner — the road to a standard interface
 
-A draft proposal for a new ASCOM device interface, `IAlignerV1` (`IAxisAlignerV1` up to draft 4), for
-motorised devices that adjust an orientation by small angles on up to three
-axes. The motivating use case is polar alignment correctors (Avalon UPAS,
-MLAstro RPA, OpenAstroTech AutoPA, Zenit Align Mini, EZT Astro MPA, OAPA and
-similar), covered by a polar alignment profile.
+This repository started as a draft proposal for a new ASCOM device interface for
+motorised devices that adjust an orientation by small angles on up to three axes,
+`IAxisAlignerV1`, with polar alignment correctors (Avalon UPAS, MLAstro RPA,
+OpenAstroTech AutoPA, Zenit Align Mini, EZT Astro MPA, OAPA and similar) as the
+motivating use case.
 
-The draft is here: [IAlignerV1.md](IAlignerV1.md). Since draft 5 it follows the ASCOM
-Initiative's own draft 1 of the interface, <https://ascom-standards.org/ialigner>, and
-lists where the two still differ.
+The ASCOM Initiative has since taken the interface up. Its definition is now
+maintained by the Initiative, and this repository no longer carries one of its own:
 
-A companion draft proposes a common serial protocol for these devices, so
-that one driver can talk to any of them:
-[AxisAlignerProtocol.md](AxisAlignerProtocol.md). It is not part of the ASCOM
-interface.
+- API definition, `IAlignerV1`: <https://ascom-standards.org/ialigner>
+- Alpaca endpoints, device type `aligner`: <https://ascom-standards.org/apialigner>
+
+Drafts 1 to 5 of the proposal that preceded it, with their revision history, remain
+in this repository's history: the last one is
+[IAlignerV1.md at draft 5](https://github.com/michelebergo/ascom-polar-alignment-corrector/blob/a42f355/IAlignerV1.md).
+
+## What stays here
 
 OpenAstroTech has drafted PolarAlign Actions, the same contract carried over
-ASCOM `Action()` so it works on existing device types today. A field-by-field
-comparison with this draft, and the points to settle for one standard:
+ASCOM `Action()` so it works on existing device types today, before clients and
+drivers support the dedicated type. A field-by-field comparison between the
+actions and the interface, and the points to settle for the transition:
 [PolarAlignActionsComparison.md](PolarAlignActionsComparison.md).
 
-## Status
+A companion draft proposes a common serial protocol for these devices, so that
+one driver can talk to any of them: [AxisAlignerProtocol.md](AxisAlignerProtocol.md).
+It is not part of the ASCOM interface, which defines what a client sees and never
+what a driver sends to its device.
 
-Draft 5, aligned with the ASCOM Initiative's draft 1 (15 November 2026). Nothing is final:
-names, members and semantics are open to change. It is not an ASCOM
-Initiative document and has not been endorsed by the Initiative.
+A working device: the OAPA Alpaca server (<https://github.com/michelebergo/oapa-alpaca>)
+serves an OAPA board as an `aligner` device after the Initiative's draft, next to the
+interim PolarAlign actions on a Switch device.
 
 ## Feedback
 
-Discussion happens on ASCOM-Talk Developer, in thread #9611 ("I need ASCOM
-standard for Automatic Polar Alignment"). Comments, corrections and
-suggestions from device makers and client developers are also welcome as
-issues or pull requests here.
+The interface is discussed with the ASCOM Initiative and on ASCOM-Talk Developer
+(thread #9611, "I need ASCOM standard for Automatic Polar Alignment"). Comments on the
+comparison and on the serial protocol are welcome as issues or pull requests here.
 
 ## License
 

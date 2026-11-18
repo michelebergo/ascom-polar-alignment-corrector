@@ -3,7 +3,8 @@
 Status: draft 1, for discussion. Authors: Michele Bergo (OAPA), from a command
 mapping proposed by Lutz (OpenAstroTech). Nothing here is final.
 
-This is **not** part of the ASCOM interface. [IAlignerV1](IAlignerV1.md)
+This is **not** part of the ASCOM interface. The ASCOM `IAlignerV1` interface
+(<https://ascom-standards.org/ialigner>)
 defines what a client sees; ASCOM never defines what a driver sends to its
 device. This document proposes a common wire protocol for aligner devices, so
 that one ASCOM/Alpaca (or INDI) driver can talk to any device that speaks it,
