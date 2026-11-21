@@ -10,7 +10,7 @@ two drafts. Compares:
   (API definition <https://ascom-standards.org/ialigner>, Alpaca endpoints
   <https://ascom-standards.org/apialigner>), which is now the text to read; the
   draft-3 member names below map onto it as follows: `Application` is
-  `AlignerPurpose`, the `Can*`, `MaxMove` and travel properties sit in one
+  `AlignerType`, the `Can*`, `MaxMove` and travel properties sit in one
   `Configuration` object, the unit is stated by the device in `Units` (degrees for
   a polar aligner), and the Alpaca device type is `aligner`. The serial protocol is
   still here: [AxisAlignerProtocol.md](AxisAlignerProtocol.md).
